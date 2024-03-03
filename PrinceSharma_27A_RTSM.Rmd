@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#REQUIRED PACKAGES
+packages = c('tseries','forecast','quantmod','car','FinTS','rugarch')
+
+#Load all packages
+lapply(packages, require, character.only = TRUE)
+#lapply(quantmod)
+
+
+
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*.
+
+```{r}
+stock_data = new.env()
+stock_list = c('PIDILITIND.NS')
+start_date = as.Date('2015-01-01'); end_date = as.Date('2019-12-31')
+getSymbols(Symbols = stock_list, from = start_date, to = end_date, env = stock_data)
+stock_price=na.omit(stock_data$PIDILITIND.NS$PIDILITIND.NS.Adjusted)
+#pid_price
+
+#stock_price = PIDILITIND.NS$PIDILITIND.NS.Close # Adjusted Closing Price
+class(stock_price) # xts (Time-Series) Object
+stock_price
+
+
+```
+
+```{r}
+# Required Packages
+packages = c('tseries', 'forecast') 
+
+# Load all Packages
+lapply(packages, require, character.only = TRUE) 
+```
+
+```{r}
+# ---------------------------------------------------------------------------------------------
+
+# Forecasting with Time-Series Data (Univariate) : Procedure
+# **********************************************************
+
+# Given an Univariate Time-Series Data, Perform the following Analysis :
+
+# Step 1 : Check for (Weak) Stationarity :: Augmented Dickey-Fuller (ADF) Test
+# If [Data] Stationary, Proceed to Step 2
+# If [Data] Non-Stationary, Use Transformation (such as First/Second/... Difference | Log | ...) to Transform the Data and Check for Stationarity (Step 1)
+
+# Step 2 : Check for Autocorrelation :: Ljung-Box Test 
+# If [Data | Transformed Data] Do Not Have Autocorrelation, proceed to Step 4
+# If [Data | Transformed Data] Has Autocorrelation, Proceed to Step 3
+
+# Step 3 : Model for Autocorrelation :: ARIMA Models
+# Identify AR | MA Order in the [Data | Transformed Data] using PACF | ACF Plots
+# Use ARIMA(p, d, q) with Appropriate AR Order (p-Lags) | d-Degree of Differencing | MA Order (q-Lags) using PACF | ACF Information to Model the [Data | Transformed Data]
+# Test for Autocorrelation in the [Residual Data 1] | If the ARIMA Model is Appropriate : No Autocorrelation in the [Residual Data 1] | If Autocorrelation in [Residual Data 1], Remodel the [Data | Transformed Data]
+# Proceed to Step 4
+
+# Step 4 : Check for Heteroskedasticity :: ARCH LM Test
+# If [Data | Transformed Data] (Step 2) | [Residual Data 1] (Step 3) Do Not Have Heteroskedasticity, Proceed to Step 6
+# If [Data | Transformed Data] (Step 2) | [Residual Data 1] (Step 3) Has Heteroskedasticity, Proceed to Step 5
+
+# Step 5a : Model for Heteroskedasticity in [Data | Transformed Data] (Step 2) :: GARCH Models
+# If Mean of [Data | Transformed Data] (Step 2) != 0 : De-Mean & Square the [Data | Transformed Data] | If Mean of [Data | Transformed Data] (Step 2) = 0 : Square the [Data | Transformed Data] 
+# Identify ARCH | GARCH Order in the using GARCH Function
+# Use GARCH(p,q) with Appropriate ARCH Order (p-Lags) | GARCH Order (q-Lags) to Model the [Data | Transformed Data]
+# Test for Autocorrelation & Heteroskedasticity in the [Residual Data 2] | If the GARCH Model is Appropriate : No Autocorrelation & Heteroskedasticity in the [Residual Data 2] | If Autocorrelation & Heteroskedasticity in [Residual Data 2], Remodel the Squared [Data | Transformed Data]
+# End of Analysis
+
+# Step 5b : Model for Heteroskedasticity in [Residual Data 1] (Step 3) :: GARCH Models
+# Identify ARCH | GARCH Order in the using GARCH Function
+# Use GARCH(p, q) with Appropriate ARCH Order (p-Lags) | GARCH Order (q-Lags) with ARIMA(p, d, q) Model (in Step 3) in the Mean Equation to Model the [Residual Data 1] 
+# Test for Autocorrelation & Heteroskedasticity in the [Residual Data 2] | If the ARIMA+GARCH Model is Appropriate : No Autocorrelation & Heteroskedasticity in the [Residual Data 2] | If Autocorrelation & Heteroskedasticity in [Residual Data 2], Remodel the [Residual Data 1]
+# End of Analysis
+
+# Step 6 : Model White-Noise Data 
+# If the [Data | Transformed Data] is Stationary, Has No Autocorrelation & Heteroskedasticity, the [Data | Transformed Data] is White-Noise Data
+# Model White-Noise Data with Appropriate Probability Distribution
+# End of Analysis
+
+```
+
+```{r}
+# Augmented Dickey-Fuller (ADF) Test for Stationarity with Pidilite Data
+# *******************************************************************
+
+adf_test_pid = adf.test(stock_price);adf_test_pid
+# Inference : pid Time-Series is Non-Stationary
+
+```
+
+```{r}
+pid_ds = diff(log(stock_price)); plot(pid_ds) # Pidilite (First)return Difference Time-Series
+```
+
+```{r}
+pid_ds=na.omit(pid_ds)
+adf_test_pid_ds = adf.test(pid_ds); adf_test_pid_ds # Inference : Pidilite Difference Time-Series is Stationary
+
+```
+
+```{r}
+# Ljung-Box Test for Autocorrelation - Pidilite Data
+# ***********************************************
+
+lb_test_pid_ds = Box.test(pid_ds); lb_test_pid_ds # Inference :Pidilite Difference (Stationary) Time-Series is Autocorrelated as NULL is rejected and p-value<0.0151 | NULL: No Auto correlation | Alternate: Auto Correlation
+```
+
+```{r}
+# 3.0.3.2. Autocorrelation Function (ACF) | Partial Autocorrelation Function (PACF)
+# *****************************************************************************
+
+acf(stock_price) # ACF of JJ Series
+pacf(stock_price) # PACF of JJ Series
+
+acf(pid_ds) # ACF of Pidilite Difference (Stationary) Series
+pacf(pid_ds) # PACF of Pidilite Difference (Stationary) Series
+```
+
+![](images/Screenshot 2024-03-03 205030.png)
+
+```{r}
+# 3.1. Auto Regressive Integrated Moving Average (ARIMA) Models
+# *************************************************************
+
+# 3.1.1. ARIMA Models
+# *******************
+
+# AR (p-Lag) Model : y(t) = c1 + a1*y(t-1) + a2*y(t-2) + ... + ap*y(t-p) + e(t) where e = error == White Noise | AR-1 Model : y(t) = c + a1*y(t-1) + e(t)
+# MA (q-Lag) Model : y(t) = c2 + b1*e(t-1) + b2*e(t-2) + ... + bp*e(t-p) where e = Error == White Noise | MA-1 Model : y(t) = d + b1*e(t-1)
+# ARMA (p, q) Model : y(t) = c + a1*y(t-1) + ... + ap*y(t-p) + b1*e(t-1) + ... + bp*e(t-p) + e(t) | ARMA (1, 1) Model : y(t) = c + a1*y(t-1) + b1*e(t-1) + e(t)
+
+# ARIMA(p, d, q) = AR Order (p-Lags) | d-Degree of Differencing | MA Order (q-Lags)
+
+# Note: The Degree of Differencing for a Time Series data such as Asset Returns is d=0. For a Time Series data such as Asset Prices the Degree of Differencing is usually d=1.
+# Identify AR Order : PACF Cuts Off after p Lags | ACF Tails Off
+# Identify MA Order : ACF Cuts Off after q Lags | PACF Tails Off
+```
+
+```{r}
+arma_pq_pid_ds = auto.arima(pid_ds); arma_pq_pid_ds #p-lag=2, q-lag=3
+```
+
+```{r}
+pid_ds_fpq = forecast(arma_pq_pid_ds, h = 500)
+plot(pid_ds_fpq)
+```
+
+```{r}
+# Ljung-Box Test for Autocorrelation - Model Residuals
+# ****************************************************
+
+lb_test_arma_pq_pid_ds = Box.test(arma_pq_pid_ds$residuals); lb_test_arma_pq_pid_ds
+#p-value>alpha
+```
+
+```{r}
+
+# Test for Volatility Clustering or Heteroskedasticity: Box Test 
+pid_ret_sq = arma_pq_pid_ds$residuals^2 # Residual Variance (Since Mean Returns is approx. 0)
+plot(pid_ret_sq)
+pid_ret_sq_box_test = Box.test(pid_ret_sq, lag = 2) # H0: Return Variance Series is Not Serially Correlated
+pid_ret_sq_box_test # Inference : Return Variance Series is Autocorrelated (Has Volatility Clustering)
+```
+
+```{r}
+# Test for Volatility Clustering or Heteroskedasticity: ARCH Test
+pid_ret_arch_test = ArchTest(arma_pq_pid_ds$residuals^2, lags = 2) # H0: No ARCH Effects
+pid_ret_arch_test # Inference : Return Series is Heteroskedastic (Has Volatility Clustering)
+```
+
+```{r}
+# GARCH Model
+garch_model1 = ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1,1)), mean.model = list(armaOrder = c(2,3), include.mean = TRUE))
+pid_ret_garch1 = ugarchfit(garch_model1, data = arma_pq_pid_ds$residuals^2); pid_ret_garch1
+
+```
+
+```{r}
+# Test for Volatility Clustering or Heteroskedasticity: ARCH Test
+pid_garch_arch_test = ArchTest(residuals(pid_ret_garch1)^2, lags = 1) # H0: No ARCH Effects
+pid_garch_arch_test # Inference : Return Series is Heteroskedastic (Has Volatility Clustering)
+#pid_ret_garch1
+```
+
+```{r}
+#GARCH Forecast
+pid_ret_garch_forecast1 = ugarchforecast(pid_ret_garch1, n.ahead = 500); 
+pid_ret_garch_forecast1
+```
+
+```{r}
+plot(pid_ret_garch_forecast1, which = 1)
+```
